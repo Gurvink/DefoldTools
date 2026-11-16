@@ -1,0 +1,1083 @@
+local patcher = require("tools.custom_bundle_patcher")
+
+local PLATFORMS = {
+    windows = "x86_64-win32",
+    linux = "x86_64-linux",
+    macos = "x86_64-macos",
+    android = "armv7-android",
+    ios = "arm64-ios",
+    html5 = "wasm-web"
+}
+
+local GLOBAL_SETTINGS = {
+    {
+        key = "version",
+        label = "Game Version",
+        type = "text",
+        tooltip = "The version of the game, used for live update and other purposes.",
+        default = "0.0.0"
+    },
+    {
+        key = "platform_path",
+        label = "Platform Path",
+        tooltip = "The path to the platform.lua file, used for platform-specific code.",
+        type = "file",
+        relative = true,
+        default = "_services/platform.lua"
+    },
+    {
+        key = "gamemanager_path",
+        label = "Game Manager Path",
+        tooltip = "The path to the gamemanager.lua file, used for game management.",
+        type = "file",
+        relative = true,
+        default = "_modules/gamemanager.lua"
+    },
+    {
+        key = "config_path",
+        label = "Config Path",
+        tooltip = "The path to the config.lua file, used for configuration.",
+        type = "file",
+        relative = true,
+        default = "_services/config.lua"
+    },
+    {
+        key = "ab_tester_path",
+        label = "AB Tester Path",
+        tooltip = "The path to the ab_tester.lua file, used for A/B testing.",
+        type = "file",
+        relative = true,
+        default = "_modules/A_B_tester.lua"
+    },
+    {
+        key = "custom_api_path",
+        label = "Custom API Path",
+        tooltip = "The path to the custom_api.lua file, used for custom API calls.",
+        type = "file",
+        relative = true,
+        default = "_modules/API/custom_API.lua"
+    },
+    {
+        key = "game_project_path",
+        label = "Game Project Path",
+        tooltip = "The path to the game project, used for building the game.",
+        type = "file",
+        relative = true,
+        default = "game.project"
+    }
+}
+
+local BUNDLE_SETTINGS = {
+    {
+        key = "app_type",
+        label = "App Type",
+        tooltip = "The type of the application, used for platform-specific code.",
+        type = "select",
+        options = {
+            "default",
+            "curator",
+            "viewer",
+        },
+        default = "default"
+    },
+    {
+        key = "debug",
+        label = "Debug",
+        tooltip = "Enable debug mode, which includes debug symbols and other debug features.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "ab_testing",
+        label = "AB Testing",
+        tooltip = "Enable A/B testing, which allows for testing different versions of the game.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "force_version",
+        label = "Force Version",
+        tooltip = "Force the version of the game for AB testing.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "forced_version",
+        label = "Forced Version",
+        tooltip = "The forced version of the game for AB testing.",
+        type = "select",
+        options = {
+            "default"
+        },
+        default = "default"
+    },
+    {
+        key = "force_creation",
+        label = "Force creation",
+        tooltip = "Force the creation of a new AB testing group.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "amplitude",
+        label = "Amplitude",
+        tooltip = "Enable Amplitude analytics, which allows for tracking user behavior.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "region_lock",
+        label = "Region Lock",
+        tooltip = "Enable region locking, which restricts amplitude to America and Georgia.",
+        type = "checkbox",
+        default = false
+    },
+}
+
+
+local COMMON_SETTINGS = {
+    {
+        key = "variant",
+        label = "Variant",
+        tooltip = "The engine variant to build.",
+        type = "select",
+        options = {
+            "debug",
+            "release",
+            "headless"
+        },
+        default = "debug"
+    },
+    {
+        key = "texture_compression",
+        label = "Texture Compression",
+        tooltip = "Enable texture compression for this build.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "with_symbols",
+        label = "Generate Debug Symbols",
+        tooltip = "Generate debug symbols for the build. For debugging crashes and other issues.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "build_report",
+        label = "Generate Build Report",
+        tooltip = "Generate a build report for the build. For analyzing the build size and other metrics.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "liveupdate",
+        label = "Publish Live Update Content",
+        tooltip = "Publish live update content for the build. For updating the game without requiring a full rebuild.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "contentless",
+        label = "Contentless Bundle",
+        tooltip = "Create a contentless bundle for the build. For creating a bundle without any content.",
+        type = "checkbox",
+        default = false
+    },
+    {
+        key = "output",
+        label = "Output Path",
+        tooltip = "The output path for the build.",
+        type = "directory",
+        relative = false,
+        default = "builds"
+    }
+}
+
+
+local PLATFORM_SETTINGS = {
+    windows = {
+        {
+            key = "platform",
+            label = "Platform",
+            tooltip = "The platform to build for.",
+            type = "select",
+            options = {
+                "x86_64_win32",
+            },
+            default = "x86_64_win32"
+        }
+    },
+
+    linux = {
+        {
+            key = "platform",
+            label = "Platform",
+            type = "select",
+            tooltip = "The platform to build for. X64 is for intel and AMD processors and arm64 for ARM processors.",
+            options = {
+                "x86_64-linux",
+                "arm64-linux"
+            },
+            default = "x86_64-linux"
+        }
+    },
+
+    macos = {
+        {
+            key = "architectures",
+            label = "Architectures",
+            type = "multiselect",
+            tooltip =
+            "The architectures to build for. x86_64 is for intel and AMD processors and arm64 for Apple Silicon processors.",
+            options = {
+                "x86_64-macos",
+                "arm64-macos"
+            },
+            default = {
+                "x86_64-macos",
+                "arm64-macos"
+            }
+        }
+    },
+
+    android = {
+        {
+            key = "architectures",
+            label = "Architectures",
+            type = "multiselect",
+            tooltip =
+            "The architectures to build for. arm64 is for ARM processors and armv7 for older ARM processors and x86_64 for Intel processors.",
+            options = {
+                "arm64-android",
+                "armv7-android",
+                "x86_64-android"
+            },
+            default = {
+                "arm64-android",
+            }
+        },
+        {
+            key = "bundle_format",
+            label = "Bundle Format",
+            type = "multiselect",
+            tooltip = "The bundle format to build for. apk is for Android devices and aab is for Google Play Store.",
+            options = {
+                "apk",
+                "aab"
+            },
+            default = { "apk" }
+        },
+        {
+            key = "keystore",
+            label = "Keystore",
+            tooltip = "The keystore file to use for signing the Android build.",
+            type = "file",
+            default = ""
+        },
+        {
+            key = "keystore_pass",
+            label = "Keystore Password File",
+            tooltip = "The keystore password file to use for signing the Android build.",
+            type = "file",
+            default = ""
+        },
+        {
+            key = "key_pass",
+            label = "Key Password File",
+            tooltip = "The key password file to use for signing the Android build.",
+            type = "file",
+            default = ""
+        },
+        {
+            key = "install",
+            label = "Install on Connected Device",
+            tooltip = "Install the build on a connected Android device after building.",
+            type = "checkbox",
+            default = false
+        },
+        {
+            key = "launch",
+            label = "Launch Installed App",
+            tooltip = "Launch the installed app on a connected Android device after building.",
+            type = "checkbox",
+            default = false
+        }
+    },
+
+    html5 = {
+        {
+            key = "architectures",
+            label = "Architectures",
+            type = "multiselect",
+            tooltip =
+            "The architectures to build for. wasm-web is for WebAssembly and wasm_pthread-web is for WebAssembly with pthreads.",
+            options = {
+                "wasm-web",
+                "wasm_pthread-web"
+            },
+            default = { "wasm-web" }
+        }
+    },
+
+    ios = {
+        {
+            key = "sign",
+            label = "Sign application",
+            tooltip = "Sign the application with a provisioning profile and code signing identity.",
+            type = "checkbox",
+            default = false
+        },
+        {
+            key = "code_signing_identity",
+            label = "Code Signing Identity",
+            tooltip = "The code signing identity to use for signing the iOS build.",
+            type = "select",
+            options = {
+                "iPhone Developer",
+                "iPhone Distribution"
+            },
+            default = "iPhone Developer"
+        },
+        {
+            key = "provisioning_profile",
+            label = "Provisioning Profile",
+            tooltip = "The provisioning profile to use for signing the iOS build.",
+            type = "file",
+            default = ""
+        },
+        {
+            key = "architectures",
+            label = "Architectures",
+            type = "multiselect",
+            tooltip = "The architectures to build for.",
+            options = {
+                "arm64-ios",
+            },
+            default = { "arm64-ios" }
+        },
+        {
+            key = "install",
+            label = "Install on Connected Device",
+            tooltip = "Install the build on a connected iOS device after building.",
+            type = "checkbox",
+            default = false
+        },
+        {
+            key = "launch",
+            label = "Launch Installed App",
+            tooltip = "Launch the installed app on a connected iOS device after building.",
+            type = "checkbox",
+            default = false
+        }
+    }
+}
+
+
+
+local CONFIG = '.github/build.json'
+
+local M = {}
+
+local function read_ab_versions(ab_path)
+    if not ab_path or ab_path == "" then
+        print("no ab_path")
+        return { "DEFAULT" }
+    end
+
+    local ab_text = editor.get("/"..ab_path, "text")
+
+    local options = {}
+    local open = ab_text:find("M%.versions%s*=%s*%{")
+    if not open then
+        print("no open")
+        return { "DEFAULT" }
+    end
+
+    open = ab_text:find("{", open)
+    if not open then
+        print("no open part II")
+        return { "DEFAULT" }
+    end
+
+    local depth = 0
+    local content_start = open + 1
+    local content_end
+    for i = open, #ab_text do
+        local c = ab_text:sub(i, i)
+        if c == "{" then
+            depth = depth + 1
+        elseif c == "}" then
+            depth = depth - 1
+            if depth == 0 then
+                content_end = i - 1
+                break
+            end
+        end
+    end
+    if not content_end then
+        print("no content_end")
+        return { "DEFAULT" }
+    end
+
+    local content = ab_text:sub(content_start, content_end)
+    depth = 0
+    for line in content:gmatch("[^\r\n]+") do
+        local open_count = select(2, line:gsub("%{", ""))
+        local close_count = select(2, line:gsub("%}", ""))
+        if depth == 0 then
+            local key = line:match("^%s*([%w_]+)%s*=%s*%{")
+            if key then
+                options[#options + 1] = key
+            end
+        end
+        depth = depth + open_count - close_count
+    end
+
+    if #options == 0 then
+        print("no options")
+        return { "DEFAULT" }
+    end
+    return options
+end
+
+local function load_config()
+    local file = io.open(CONFIG, "r")
+
+    if not file then
+        return nil
+    end
+
+    local content = file:read("*a")
+    file:close()
+
+    local success, result = pcall(json.decode, content)
+
+    if not success or type(result) ~= "table" then
+        print("Failed to load build config")
+        return nil
+    end
+
+    return result
+end
+
+local function initial_data(use_default)
+    local saved = use_default ~= true and load_config() or nil
+
+    local data = {
+        platforms = {}
+    }
+
+    for key, value in ipairs(GLOBAL_SETTINGS) do
+        local saved_value = saved and saved[value.key] or nil
+
+        if saved_value == nil then
+            saved_value = value.default
+        end
+
+        data[value.key] = saved_value
+    end
+
+    for key, platform in pairs(PLATFORMS) do
+        local saved_platform =
+            saved
+            and saved.platforms
+            and saved.platforms[key]
+            or {}
+
+        local saved_settings =
+            saved_platform.settings or {}
+
+        local settings = {}
+        local base = key:match("^[^_]+")
+
+        for _, group in ipairs({
+            COMMON_SETTINGS,
+            PLATFORM_SETTINGS[base] or {},
+            BUNDLE_SETTINGS
+        }) do
+            for _, setting in ipairs(group) do
+                local value = saved_settings[setting.key]
+
+                if value == nil then
+                    value = setting.default
+                end
+
+                settings[setting.key] = value
+            end
+        end
+
+        data.platforms[key] = {
+            include = saved_platform.include == true,
+            platform = platform,
+            settings = settings
+        }
+    end
+
+    return data
+end
+
+
+
+local function copy_with(data, key, value)
+    local copy = {}
+    for k, v in pairs(data) do
+        copy[k] = v
+    end
+    copy[key] = value
+    return copy
+end
+
+local function install_app(platform, build_path, launch)
+    print("Installing app for platform", platform, build_path)
+
+    if platform == "android" then
+        local adb_path = "adb"
+        local install_cmd = adb_path .. " install -r " .. build_path .. "/game.apk"
+        os.execute(install_cmd)
+    elseif platform == "ios" then
+        local ios_deploy_path = "ios-deploy"
+        local install_cmd = ios_deploy_path .. " --bundle " .. build_path .. "/game.app"
+        os.execute(install_cmd)
+    else
+        print("Installation not supported for platform", platform)
+    end
+end
+
+local function process_data(data, build)
+    if not data then
+        return nil
+    end
+
+    editor.create_directory('/.github')
+    local file, err = io.open(CONFIG, 'w')
+    if not file then error('Cannot write to' .. CONFIG .. ': ' .. tostring(err)) end
+    file:write(json.encode(data))
+    file:close()
+    if build then
+        for name, platform_data in pairs(data.platforms) do
+            
+            if platform_data.include then
+                if name == "ios" and editor.platform:sub(- #"macos") ~= "macos" then
+                    print('iOS builds require macOS')
+                    goto continue
+                end
+
+                local settings = platform_data.settings
+
+                local ok, err = pcall(patcher.patch_bundle, name, settings, data)
+
+                if not ok then
+                    print("Failed to patch bundle for platform " .. name .. ": " .. tostring(err))
+                end
+
+                pprint(platform_data, settings.output)
+
+                local options = {
+                    platform = platform_data.platform,
+                    archive = true,
+                    bundle_output = settings.output .. "/" .. name,
+                    output = "build/engine/" .. name
+                }
+
+                if settings.platform then
+                    options.platform = settings.platform
+                end
+
+                if settings.variant then
+                    options.variant = settings.variant
+                end
+
+                if settings.with_symbols then
+                    options.with_symbols = settings.with_symbols
+                end
+
+                if settings.build_report then
+                    options.build_report_json = settings.output .. "/build_report_" .. name .. ".json"
+                end
+
+                if settings.liveupdate then
+                    options.liveupdate = settings.liveupdate == true and "yes" or "no"
+                end
+
+                if settings.contentless then
+                    options.exclude_archive = settings.contentless
+                end
+
+                if settings.architectures then
+                    options.architectures = table.concat(settings.architectures, ",")
+                end
+
+                if settings.bundle_format then
+                    options.bundle_format = table.concat(settings.bundle_format, ",")
+                end
+
+                if settings.texture_compression then
+                    options.texture_compression = settings.texture_compression
+                end
+
+                if settings.keystore then
+                    options.keystore = settings.keystore
+                end
+
+                if settings.keystore_pass then
+                    options.keystore_pass = settings.keystore_pass
+                end
+
+                if settings.key_pass then
+                    options.key_pass = settings.key_pass
+                end
+
+                if settings.code_signing_identity and settings.sign then
+                    options.identity = settings.code_signing_identity
+                end
+
+                if settings.provisioning_profile then
+                    options.mobileprovisioning = settings.provisioning_profile
+                end
+                
+                editor.bob(options, "resolve", "distclean", "build", "bundle")
+
+                if settings.install then
+                    install_app(name, settings.output .. "/engine/" .. name, settings.launch)
+                end
+
+                ::continue::
+            end
+        end
+        print("Finished building")
+    end
+end
+
+local function to_relative_path(path)
+    local root = editor.external_file_attributes(".").path
+
+    root = root:gsub("\\", "/"):gsub("/+$", "")
+    path = path:gsub("\\", "/"):gsub("/+$", "")
+
+    local compare_root = root
+    local compare_path = path
+
+    if editor.platform == "x86_64-win32" then
+        compare_root = root:lower()
+        compare_path = path:lower()
+    end
+
+    if compare_path == compare_root then
+        return "."
+    end
+
+    if compare_path:sub(1, #compare_root + 1)
+        == compare_root .. "/" then
+        return path:sub(#root + 2)
+    end
+
+    return nil
+end
+
+local function get_default_settings(platform, saved_settings)
+    local data = {}
+
+    for _, setting in ipairs(COMMON_SETTINGS) do
+        data[setting.key] = setting.default
+    end
+
+    for _, setting in ipairs(PLATFORM_SETTINGS[platform] or {}) do
+        data[setting.key] = setting.default
+    end
+
+    for key, value in pairs(saved_settings or {}) do
+        data[key] = value
+    end
+
+    return data
+end
+
+
+local function get_ui_element(setting, value, on_value_changed)
+    local label = editor.ui.label({
+        text = setting.label,
+        tooltip = setting.tooltip,
+        alignment = editor.ui.ALIGNMENT.LEFT
+    })
+
+    local input
+
+    if setting.type == "select" then
+        input = editor.ui.select_box({
+            value = value,
+            options = setting.options,
+            alignment = editor.ui.ALIGNMENT.RIGHT,
+            on_value_changed = on_value_changed
+        })
+    elseif setting.type == "checkbox" then
+        input = editor.ui.check_box({
+            value = value == true,
+            text = setting.label,
+            tooltip = setting.tooltip,
+            on_value_changed = on_value_changed
+        })
+        label = editor.ui.label({
+            text = "",
+            alignment = editor.ui.ALIGNMENT.LEFT
+        })
+    elseif setting.type == "directory"
+        or setting.type == "file" then
+        local is_directory = setting.type == "directory"
+
+        input = editor.ui.horizontal({
+            grow = true,
+            children = {
+                editor.ui.string_field({
+                    value = value or "",
+                    grow = true,
+                    enabled = false
+                }),
+
+                editor.ui.button({
+                    text = "Select",
+
+                    on_pressed = function()
+                        local opts = {
+                            title = setting.tooltip
+                        }
+
+                        local path
+
+                        if is_directory then
+                            path = editor.ui.show_external_directory_dialog(opts)
+                        else
+                            path = editor.ui.show_external_file_dialog(opts)
+                        end
+
+                        if setting.relative then
+                            if path then
+                                local relative = to_relative_path(path)
+                                
+                                if relative then
+                                    on_value_changed(relative)
+                                end
+                            end
+                        else
+                            on_value_changed(path)
+                        end
+                    end
+                })
+            }
+        })
+    elseif setting.type == "multiselect" then
+        local checkboxes = {}
+
+        for _, option in ipairs(setting.options) do
+            local selected_option = option
+            local selected = false
+
+            for _, current in ipairs(value or {}) do
+                if current == selected_option then
+                    selected = true
+                    break
+                end
+            end
+
+            checkboxes[#checkboxes + 1] =
+                editor.ui.check_box({
+                    text = selected_option,
+                    value = selected,
+
+                    on_value_changed = function(checked)
+                        local updated = {}
+
+                        for _, current in ipairs(value or {}) do
+                            if current ~= selected_option then
+                                updated[#updated + 1] = current
+                            end
+                        end
+
+                        if checked then
+                            updated[#updated + 1] =
+                                selected_option
+                        end
+
+                        on_value_changed(updated)
+                    end
+                })
+        end
+
+        input = editor.ui.vertical({
+            children = checkboxes
+        })
+    elseif setting.type == "text" then
+        input = editor.ui.string_field({
+            value = value or "",
+            grow = true,
+            on_value_changed = on_value_changed
+        })
+    else
+        input = editor.ui.label({
+            text = "Unknown type: " .. tostring(setting.type)
+        })
+    end
+
+    return { label, input }
+end
+
+
+local settings_popup = editor.ui.component(function(props)
+    local data, set_data = editor.ui.use_state(get_default_settings, props.platform, props.saved_settings)
+
+    local children = {}
+
+    BUNDLE_SETTINGS[5].options = read_ab_versions(props.settings.ab_tester_path)
+    BUNDLE_SETTINGS[5].default = BUNDLE_SETTINGS[5].options[1] or "default"
+
+
+    local function add_settings(settings)
+        local rows = {}
+
+        for _, setting in ipairs(settings) do
+            local key = setting.key
+
+            rows[#rows + 1] = get_ui_element(
+                setting,
+                data[key],
+                function(value)
+                    set_data(copy_with, key, value)
+                end
+            )
+        end
+
+        children[#children + 1] = editor.ui.grid({
+            columns = {
+                { grow = true },
+                { grow = true }
+            },
+            spacing = editor.ui.SPACING.MEDIUM,
+            grow = true,
+            children = rows
+        })
+    end
+
+
+    add_settings(COMMON_SETTINGS)
+
+    add_settings(PLATFORM_SETTINGS[props.platform] or {})
+
+    add_settings(BUNDLE_SETTINGS)
+
+    return editor.ui.dialog({
+        title = props.platform .. " Settings",
+        children = {
+            editor.ui.paragraph({
+                text = "Configure the build settings for the " .. props.platform .. " platform."
+            })
+        },
+        content = editor.ui.scroll({
+            content = editor.ui.vertical({
+                padding = editor.ui.PADDING.LARGE,
+                children = children
+            })
+        }),
+        buttons = {
+            editor.ui.dialog_button({
+                text = "Cancel",
+                cancel = true
+            }),
+            editor.ui.dialog_button({
+                text = "Save",
+                default = true,
+                result = { settings = data }
+            })
+        }
+    })
+end)
+
+local popup = editor.ui.component(function(props)
+    local data, set_data = editor.ui.use_state(initial_data)
+
+    local function update(key, value)
+        set_data(function(current)
+            return copy_with(current, key, value)
+        end)
+    end
+
+    local elements = {}
+
+    elements[#elements + 1] = editor.ui.heading({
+        text = "Global Settings",
+    })
+
+    local function add_settings(settings)
+        local rows = {}
+
+        for _, setting in ipairs(settings) do
+            local key = setting.key
+
+            rows[#rows + 1] = get_ui_element(
+                setting,
+                data[key],
+                function(value)
+                    update(key, value)
+                end
+            )
+        end
+
+        elements[#elements + 1] = editor.ui.grid({
+            columns = {
+                {},
+                { grow = true }
+            },
+            spacing = editor.ui.SPACING.MEDIUM,
+            children = rows
+        })
+    end
+
+    add_settings(GLOBAL_SETTINGS)
+
+    elements[#elements + 1] = editor.ui.heading({
+        text = "Platforms",
+    })
+
+    local rows = {}
+
+    for name, platform in pairs(PLATFORMS) do
+        local key = name
+
+        rows[#rows + 1] = {
+            editor.ui.check_box({
+                text = key,
+                value = data.platforms[key].include == true,
+
+                on_value_changed = function(value)
+                    set_data(function(current)
+                        local platform_data = copy_with(
+                            current.platforms[key], "include", value
+                        )
+
+                        local platforms = copy_with(
+                            current.platforms, key, platform_data
+                        )
+
+                        return copy_with(
+                            current, "platforms", platforms
+                        )
+                    end)
+                end
+            }),
+
+            editor.ui.separator({
+                orientation = editor.ui.ORIENTATION.VERTICAL
+            }),
+
+            editor.ui.button({
+                text = "Settings",
+                on_pressed = function()
+                    local p = key:match("^[^_]+")
+
+                    local result = editor.ui.show_dialog(
+                        settings_popup({ platform = p, saved_settings = data.platforms[key].settings, settings = data })
+                    )
+
+                    if result and result.settings then
+                        set_data(function(current)
+                            local platform_data = copy_with(
+                                current.platforms[key],
+                                "settings",
+                                result.settings
+                            )
+
+                            local platforms = copy_with(
+                                current.platforms,
+                                key,
+                                platform_data
+                            )
+
+                            return copy_with(
+                                current,
+                                "platforms",
+                                platforms
+                            )
+                        end)
+                    end
+                end
+            })
+        }
+    end
+
+    elements[#elements + 1] = editor.ui.grid({
+        columns = {
+            { grow = true },
+            {},
+            {}
+        },
+        spacing = editor.ui.SPACING.MEDIUM,
+        children = rows
+    })
+
+    return editor.ui.dialog({
+        title = 'Defold build manager',
+        width = 960,
+        height = 690,
+        resizable = true,
+
+        content = editor.ui.scroll({
+            content = editor.ui.vertical({
+                padding = editor.ui.PADDING.LARGE,
+                children = elements
+            })
+        }),
+
+        buttons = {
+            editor.ui.dialog_button({
+                text = 'Save config',
+                result = {
+                    action = 'push',
+                    build = false,
+                    data = data
+                }
+            }),
+
+            editor.ui.dialog_button({
+                text = 'Save config and build',
+                result = {
+                    action = 'push',
+                    build = true,
+                    data = data
+                }
+            }),
+
+            editor.ui.dialog_button({
+                text = 'Clear config',
+                result = {
+                    action = 'clear',
+                }
+            }),
+
+            editor.ui.dialog_button({
+                text = 'Cancel',
+                cancel = true
+            }),
+        }
+    })
+end)
+
+function M.get_commands()
+    return { {
+        label = 'Build manager',
+        locations = { 'Project' },
+
+        run = function()
+            local result = editor.ui.show_dialog(popup({}))
+
+            if not result then
+                return
+            end
+
+            if result.action == 'push' then
+                process_data(result.data, result.build)
+            elseif result.action == 'clear' then
+                process_data(initial_data(true), false)
+            end
+        end
+    } }
+end
+
+return M
