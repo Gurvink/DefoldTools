@@ -1,0 +1,21 @@
+name: Lint GitHub Actions workflows
+
+on:
+	pull_request:
+	push:
+		branches:
+			- main
+
+permissions:
+	contents: read
+
+jobs:
+	actionlint:
+		name: Validate workflows
+		runs-on: ubuntu-latest
+		steps:
+			- name: Check out repository
+				uses: actions/checkout@v4
+
+			- name: Run actionlint
+				uses: raven-actions/actionlint@v2
