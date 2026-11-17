@@ -14,11 +14,10 @@ The Build Manager provides a consistent way to configure and start Defold builds
 The workflow automates the same steps used locally:
 
 1. Check out the repository.
-2. Install or select the required Defold version and tools.
-3. Restore dependencies and configure secrets or signing credentials.
-4. Run the Build Manager with the workflow’s target and mode.
-5. Verify the exit status and collect the generated artifacts.
-6. Publish artifacts only when the build and validation steps succeed.
+2. Read the build.json file to get the settings
+3. Apply the settings for each platform that gets built
+4. Build each platform
+5. The builds are available in the artifacts of the run
 
 
 ## Settings
