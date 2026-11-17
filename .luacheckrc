@@ -14,5 +14,5 @@ codes = true
 unused_args = false
 
 ignore = {
-    "612" -- Line containing only whitspace
+    "611" -- Line containing only whitspace
 }
