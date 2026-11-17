@@ -1,21 +1,27 @@
-name: Lint GitHub Actions workflows
 
-on:
-	pull_request:
-	push:
-		branches:
-			- main
+name: GitHub Actions Lint
+
+'on':
+  push:
+  pull_request:
+  workflow_dispatch:
 
 permissions:
-	contents: read
+  contents: read
 
 jobs:
-	actionlint:
-		name: Validate workflows
-		runs-on: ubuntu-latest
-		steps:
-			- name: Check out repository
-				uses: actions/checkout@v4
+  actionlint:
+    name: Validate Workflows
+    runs-on: ubuntu-latest
 
-			- name: Run actionlint
-				uses: raven-actions/actionlint@v2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Actionlint
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            -w /repo \
+            rhysd/actionlint:1.7.12 \
+            -color
