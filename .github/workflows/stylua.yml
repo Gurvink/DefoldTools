@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Run StyLua
@@ -24,6 +24,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: latest
           args: >-
+            --check
             --glob '**/*.lua'
+            --glob '**/*.script'
+            --glob '**/*.gui_script'
+            --glob '**/*.render_script'
             --glob '**/*.editor_script'
+            --glob '!**/.luarocks/**'
             .

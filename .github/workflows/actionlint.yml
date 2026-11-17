@@ -1,7 +1,7 @@
 
 name: GitHub Actions Lint
 
-'on':
+on:
   push:
   pull_request:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Run Actionlint
@@ -23,5 +23,5 @@ jobs:
           docker run --rm \
             -v "$PWD:/repo" \
             -w /repo \
-            rhysd/actionlint:1.7.12 \
+            rhysd/actionlint:1.7.7 \
             -color
