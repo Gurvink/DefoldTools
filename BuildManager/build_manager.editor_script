@@ -9,6 +9,8 @@ local PLATFORMS = {
     html5 = "wasm-web"
 }
 
+local EVIL = true
+
 local GLOBAL_SETTINGS = {
     {
         key = "version",
@@ -16,7 +18,9 @@ local GLOBAL_SETTINGS = {
         type = "text",
         tooltip = "The version of the game, used for live update and other purposes.",
         default = "0.0.0"
-    },
+    }
+}
+local PATCHER_SETTINGS = {
     {
         key = "platform_path",
         label = "Platform Path",
@@ -202,9 +206,9 @@ local PLATFORM_SETTINGS = {
             tooltip = "The platform to build for.",
             type = "select",
             options = {
-                "x86_64_win32",
+                "x86_64-win32",
             },
-            default = "x86_64_win32"
+            default = "x86_64-win32"
         }
     },
 
@@ -372,8 +376,6 @@ local PLATFORM_SETTINGS = {
     }
 }
 
-
-
 local CONFIG = '.github/build.json'
 
 local M = {}
@@ -441,19 +443,21 @@ local function read_ab_versions(ab_path)
 end
 
 local function load_config()
-    local file = io.open(CONFIG, "r")
+    local success, content = pcall(
+        editor.get,
+        "/" .. CONFIG,
+        "text"
+    )
 
-    if not file then
+    if not success or not content then
+        print("Could not read config: " .. CONFIG)
         return nil
     end
 
-    local content = file:read("*a")
-    file:close()
+    local decoded, result = pcall(json.decode, content)
 
-    local success, result = pcall(json.decode, content)
-
-    if not success or type(result) ~= "table" then
-        print("Failed to load build config")
+    if not decoded or type(result) ~= "table" then
+        print("Failed to decode build config: " .. tostring(result))
         return nil
     end
 
@@ -467,14 +471,16 @@ local function initial_data(use_default)
         platforms = {}
     }
 
-    for key, value in ipairs(GLOBAL_SETTINGS) do
-        local saved_value = saved and saved[value.key] or nil
-
-        if saved_value == nil then
-            saved_value = value.default
+    for _, settings in ipairs({GLOBAL_SETTINGS, PATCHER_SETTINGS}) do
+        for _, value in ipairs(settings) do 
+            local saved_value = saved and saved[value.key] or nil
+            
+            if saved_value == nil then
+                saved_value = value.default
+            end
+            
+            data[value.key] = saved_value
         end
-
-        data[value.key] = saved_value
     end
 
     for key, platform in pairs(PLATFORMS) do
@@ -564,13 +570,15 @@ local function process_data(data, build)
 
                 local settings = platform_data.settings
 
-                local ok, err = pcall(patcher.patch_bundle, name, settings, data)
+                if EVIL then
+                    local ok, err = pcall(patcher.patch_bundle, name, settings, data)
 
-                if not ok then
-                    print("Failed to patch bundle for platform " .. name .. ": " .. tostring(err))
+                    if not ok then
+                        print("Failed to patch bundle for platform " .. name .. ": " .. tostring(err))
+                    end
                 end
 
-                pprint(platform_data, settings.output)
+
 
                 local options = {
                     platform = platform_data.platform,
@@ -677,12 +685,14 @@ end
 local function get_default_settings(platform, saved_settings)
     local data = {}
 
-    for _, setting in ipairs(COMMON_SETTINGS) do
-        data[setting.key] = setting.default
-    end
-
-    for _, setting in ipairs(PLATFORM_SETTINGS[platform] or {}) do
-        data[setting.key] = setting.default
+    for _, settings in ipairs({
+        COMMON_SETTINGS,
+        PLATFORM_SETTINGS[platform] or {},
+        BUNDLE_SETTINGS
+    }) do
+        for _, setting in ipairs(settings) do
+            data[setting.key] = setting.default
+        end
     end
 
     for key, value in pairs(saved_settings or {}) do
@@ -826,8 +836,10 @@ local settings_popup = editor.ui.component(function(props)
 
     local children = {}
 
-    BUNDLE_SETTINGS[5].options = read_ab_versions(props.settings.ab_tester_path)
-    BUNDLE_SETTINGS[5].default = BUNDLE_SETTINGS[5].options[1] or "default"
+    if EVIL then 
+        BUNDLE_SETTINGS[5].options = read_ab_versions(props.settings.ab_tester_path)
+        BUNDLE_SETTINGS[5].default = BUNDLE_SETTINGS[5].options[1] or "default"
+    end
 
 
     local function add_settings(settings)
@@ -860,8 +872,10 @@ local settings_popup = editor.ui.component(function(props)
     add_settings(COMMON_SETTINGS)
 
     add_settings(PLATFORM_SETTINGS[props.platform] or {})
-
-    add_settings(BUNDLE_SETTINGS)
+    
+    if EVIL then
+        add_settings(BUNDLE_SETTINGS)
+    end
 
     return editor.ui.dialog({
         title = props.platform .. " Settings",
@@ -931,6 +945,10 @@ local popup = editor.ui.component(function(props)
     end
 
     add_settings(GLOBAL_SETTINGS)
+
+    if EVIL then
+        add_settings(PATCHER_SETTINGS)
+    end
 
     elements[#elements + 1] = editor.ui.heading({
         text = "Platforms",
