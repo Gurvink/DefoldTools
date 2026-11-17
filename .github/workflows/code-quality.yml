@@ -49,12 +49,17 @@ jobs:
             echo "No Lua files found"
           fi
 
+      
       - name: Run Luacheck
         run: |
           if [ -s /tmp/lua-files ]; then
-            xargs -0 -r luacheck \
-              --config .luacheckrc \
-              < /tmp/lua-files
+            echo "Running Luacheck..."
+
+            while IFS= read -r -d '' file; do
+              echo "::group::Checking $file"
+              luacheck --config .luacheckrc "$file"
+              echo "::endgroup::"
+            done < /tmp/lua-files
           else
             echo "No Lua files found"
           fi
