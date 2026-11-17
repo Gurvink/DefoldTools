@@ -472,7 +472,7 @@ local function initial_data(use_default)
     }
 
     for _, settings in ipairs({GLOBAL_SETTINGS, PATCHER_SETTINGS}) do
-        for _, value in ipairs(settings) do 
+        for _, value in ipairs(settings) do
             local saved_value = saved and saved[value.key] or nil
             
             if saved_value == nil then
@@ -546,6 +546,11 @@ local function install_app(platform, build_path, launch)
         os.execute(install_cmd)
     else
         print("Installation not supported for platform", platform)
+        return
+    end
+
+    if launch then
+        print("Launch the app")
     end
 end
 
