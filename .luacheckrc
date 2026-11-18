@@ -15,4 +15,5 @@ unused_args = false
 
 ignore = {
     "611" -- Line containing only whitspace
+    "612" -- Line containing trailing whitespace
 }

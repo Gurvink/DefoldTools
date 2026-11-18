@@ -841,7 +841,7 @@ local settings_popup = editor.ui.component(function(props)
 
     local children = {}
 
-    if EVIL then 
+    if EVIL then
         BUNDLE_SETTINGS[5].options = read_ab_versions(props.settings.ab_tester_path)
         BUNDLE_SETTINGS[5].default = BUNDLE_SETTINGS[5].options[1] or "default"
     end
