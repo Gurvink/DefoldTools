@@ -1,6 +1,6 @@
 # Build Manager
 
-The Build Manager provides a consistent way to configure and start Defold builds. It keeps build-related settings and steps in one place so that local builds and automated workflow builds use the same process.
+The Build Manager provides a consistent way to configure and start Defold builds. It keeps build-related settings and steps in one place so that local builds and automated workflow builds use the same process. the [Build Manager](build_manager.editor_script) and [Custom Bundle Patcher](custom_bundle_patcher.lua) are suppose to be placed in the tools folder inside a Defold project.
 
 ## Typical workflow
 
