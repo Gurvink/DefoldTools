@@ -9,7 +9,7 @@ local PLATFORMS = {
     html5 = "wasm-web"
 }
 
-local EVIL = true
+local EVIL = false
 
 local GLOBAL_SETTINGS = {
     {
@@ -320,6 +320,13 @@ local PLATFORM_SETTINGS = {
                 "wasm_pthread-web"
             },
             default = { "wasm-web" }
+        },
+        {
+            key = "server",
+            label = "Start a local server for the game",
+            tooltip = "Automaticly host the game using npx vite",
+            type = "checkbox",
+            default = false
         }
     },
 
@@ -386,7 +393,7 @@ local function read_ab_versions(ab_path)
         return { "DEFAULT" }
     end
 
-    local ab_text = editor.get("/"..ab_path, "text")
+    local ab_text = editor.get("/" .. ab_path, "text")
 
     local options = {}
     local open = ab_text:find("M%.versions%s*=%s*%{")
@@ -471,14 +478,14 @@ local function initial_data(use_default)
         platforms = {}
     }
 
-    for _, settings in ipairs({GLOBAL_SETTINGS, PATCHER_SETTINGS}) do
+    for _, settings in ipairs({ GLOBAL_SETTINGS, PATCHER_SETTINGS }) do
         for _, value in ipairs(settings) do
             local saved_value = saved and saved[value.key] or nil
-            
+
             if saved_value == nil then
                 saved_value = value.default
             end
-            
+
             data[value.key] = saved_value
         end
     end
@@ -554,6 +561,15 @@ local function install_app(platform, build_path, launch)
     end
 end
 
+local function start_server(folder)
+    editor.execute(
+    "cmd.exe", "/c", "start", "Vite Server",
+    "npx", "--yes", "vite", folder, "--open", "--host",
+    { reload_resources = false }
+)
+print("Vite start command executed in " .. folder)
+end
+
 local function process_data(data, build)
     if not data then
         return nil
@@ -566,7 +582,6 @@ local function process_data(data, build)
     file:close()
     if build then
         for name, platform_data in pairs(data.platforms) do
-            
             if platform_data.include then
                 if name == "ios" and editor.platform:sub(- #"macos") ~= "macos" then
                     print('iOS builds require macOS')
@@ -588,7 +603,7 @@ local function process_data(data, build)
                 local options = {
                     platform = platform_data.platform,
                     archive = true,
-                    bundle_output = settings.output .. "/" .. name,
+                    bundle_output = settings.output .. "\\" .. name,
                     output = "build/engine/" .. name
                 }
 
@@ -647,11 +662,15 @@ local function process_data(data, build)
                 if settings.provisioning_profile then
                     options.mobileprovisioning = settings.provisioning_profile
                 end
-                
+
                 editor.bob(options, "resolve", "distclean", "build", "bundle")
 
                 if settings.install then
                     install_app(name, settings.output .. "/engine/" .. name, settings.launch)
+                end
+
+                if settings.server then
+                    start_server(options.bundle_output)
                 end
 
                 ::continue::
@@ -767,7 +786,7 @@ local function get_ui_element(setting, value, on_value_changed)
                         if setting.relative then
                             if path then
                                 local relative = to_relative_path(path)
-                                
+
                                 if relative then
                                     on_value_changed(relative)
                                 end
@@ -877,7 +896,7 @@ local settings_popup = editor.ui.component(function(props)
     add_settings(COMMON_SETTINGS)
 
     add_settings(PLATFORM_SETTINGS[props.platform] or {})
-    
+
     if EVIL then
         add_settings(BUNDLE_SETTINGS)
     end
