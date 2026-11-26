@@ -194,6 +194,13 @@ local COMMON_SETTINGS = {
         type = "directory",
         relative = false,
         default = "builds"
+    },
+    {
+        key = "zip",
+        label = "Zip Output",
+        tooltip = "Zip the output for the build.",
+        type = "checkbox",
+        default = false
     }
 }
 
@@ -562,12 +569,13 @@ local function install_app(platform, build_path, launch)
 end
 
 local function start_server(folder)
+    local project_name = editor.get("/game.project", "project.title")
     editor.execute(
-    "cmd.exe", "/c", "start", "Vite Server",
-    "npx", "--yes", "vite", folder, "--open", "--host",
-    { reload_resources = false }
-)
-print("Vite start command executed in " .. folder)
+        "cmd.exe", "/c", "start", "Vite Server",
+        "npx", "--yes", "vite", folder .. '\\' .. project_name, "--open", "--host",
+        { reload_resources = false }
+    )
+    print("Vite start command executed in " .. folder)
 end
 
 local function process_data(data, build)
@@ -671,6 +679,17 @@ local function process_data(data, build)
 
                 if settings.server then
                     start_server(options.bundle_output)
+                end
+
+                if settings.zip then
+                    local project_name = editor.get("/game.project", "project.title")
+                    editor.execute(
+                        "powershell.exe", "-NoProfile", "-Command",
+                        "Compress-Archive -Path '" ..
+                        options.bundle_output .. "\\" .. project_name .. "\\*" ..
+                        "' -DestinationPath '" .. options.bundle_output .. "\\" .. name .. ".zip" .. "' -Force",
+                        { reload_resources = false }
+                    )
                 end
 
                 ::continue::
